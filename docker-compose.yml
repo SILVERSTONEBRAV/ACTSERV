@@ -29,6 +29,9 @@ services:
     environment:
       - DATABASE_URL=postgres://dataconnector_user:dataconnector_password@platform-db:5432/dataconnector
       - DEBUG=1
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend,0.0.0.0
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - DJANGO_SECRET_KEY=change-me-in-production-use-a-real-secret-key
     depends_on:
       - platform-db
 

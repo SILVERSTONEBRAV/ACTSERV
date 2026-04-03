@@ -1,4 +1,21 @@
 from abc import ABC, abstractmethod
+import re
+
+
+def _sanitize_query(query: str) -> str:
+    """Basic SQL injection guard — reject dangerous patterns."""
+    dangerous = re.compile(
+        r'\b(DROP|ALTER|TRUNCATE|DELETE|UPDATE|INSERT|EXEC|EXECUTE|CREATE|GRANT|REVOKE)\b',
+        re.IGNORECASE
+    )
+    if dangerous.search(query):
+        raise ValueError("Query contains forbidden SQL keywords. Only SELECT queries are allowed.")
+    # Strip trailing semicolons to prevent statement chaining
+    query = query.rstrip(';').strip()
+    if not query:
+        raise ValueError("Query cannot be empty")
+    return query
+
 
 class BaseConnector(ABC):
     def __init__(self, config):
@@ -11,6 +28,7 @@ class BaseConnector(ABC):
     @abstractmethod
     def extract_batch(self, query, batch_size, offset):
         pass
+
 
 class PostgresConnector(BaseConnector):
     def connect(self):
@@ -25,16 +43,19 @@ class PostgresConnector(BaseConnector):
         )
 
     def extract_batch(self, query, batch_size, offset):
+        query = _sanitize_query(query)
         conn = self.connect()
         try:
+            import psycopg2.extras
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                paginated_query = f"{query} LIMIT {batch_size} OFFSET {offset}"
-                cur.execute(paginated_query)
+                # Use parameterized LIMIT/OFFSET to prevent injection
+                paginated_query = f"{query} LIMIT %s OFFSET %s"
+                cur.execute(paginated_query, (batch_size, offset))
                 return [dict(row) for row in cur.fetchall()]
         finally:
             conn.close()
 
-# Similar connectors for MySQL, Mongo, ClickHouse would go here
+
 class MySQLConnector(BaseConnector):
     def connect(self):
         import pymysql
@@ -48,14 +69,17 @@ class MySQLConnector(BaseConnector):
         )
 
     def extract_batch(self, query, batch_size, offset):
+        query = _sanitize_query(query)
         conn = self.connect()
         try:
             with conn.cursor() as cur:
-                paginated_query = f"{query} LIMIT {batch_size} OFFSET {offset}"
-                cur.execute(paginated_query)
+                # Use parameterized LIMIT/OFFSET
+                paginated_query = f"{query} LIMIT %s OFFSET %s"
+                cur.execute(paginated_query, (batch_size, offset))
                 return cur.fetchall()
         finally:
             conn.close()
+
 
 class MongoConnector(BaseConnector):
     def connect(self):
@@ -64,15 +88,19 @@ class MongoConnector(BaseConnector):
         return MongoClient(uri)
 
     def extract_batch(self, query, batch_size, offset):
-        # query here acts as a collection name for simplicity in this assessment
+        # query here acts as a collection name — sanitize it
+        collection_name = re.sub(r'[^a-zA-Z0-9_]', '', query)
+        if not collection_name:
+            raise ValueError("Invalid collection name")
         client = self.connect()
         db = client[self.config.database_name]
-        collection = db[query]
+        collection = db[collection_name]
         data = list(collection.find({}).skip(offset).limit(batch_size))
         for item in data:
             item['_id'] = str(item['_id'])
         client.close()
         return data
+
 
 class ClickHouseConnector(BaseConnector):
     def connect(self):
@@ -86,12 +114,18 @@ class ClickHouseConnector(BaseConnector):
         )
 
     def extract_batch(self, query, batch_size, offset):
+        query = _sanitize_query(query)
         client = self.connect()
+        # ClickHouse doesn't support parameterized LIMIT/OFFSET the same way,
+        # but we validate batch_size and offset are integers
+        batch_size = int(batch_size)
+        offset = int(offset)
         paginated_query = f"{query} LIMIT {batch_size} OFFSET {offset}"
         result = client.query(paginated_query)
         columns = result.column_names
         data = [dict(zip(columns, row)) for row in result.result_rows]
         return data
+
 
 def extract_data_with_connector(connection_config, query, batch_size, offset):
     connector_classes = {
@@ -100,10 +134,10 @@ def extract_data_with_connector(connection_config, query, batch_size, offset):
         'MONGO': MongoConnector,
         'CLICKHOUSE': ClickHouseConnector
     }
-    
+
     cls = connector_classes.get(connection_config.db_type)
     if not cls:
         raise ValueError("Unsupported Database Type")
-    
+
     connector = cls(connection_config)
     return connector.extract_batch(query, batch_size, offset)

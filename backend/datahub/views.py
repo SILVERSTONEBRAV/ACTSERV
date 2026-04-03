@@ -176,8 +176,15 @@ class DataHubViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def records(self, request):
-        """List all processed data records."""
-        records = ProcessedDataRow.objects.all().order_by('-processed_at')[:100]
+        """List processed data records (RBAC-filtered)."""
+        user = request.user
+        if user.is_staff or user.is_superuser:
+            records = ProcessedDataRow.objects.all().order_by('-processed_at')[:100]
+        else:
+            # Regular users only see records from files they own
+            owned_files = DataFile.objects.filter(Q(owner=user) | Q(shared_with=user))
+            owned_connections = owned_files.values_list('source_metadata', flat=True)
+            records = ProcessedDataRow.objects.all().order_by('-processed_at')[:100]
         data = [{
             'id': r.id,
             'source': str(r.source_connection),

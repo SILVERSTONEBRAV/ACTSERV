@@ -24,6 +24,8 @@ export async function apiGet(path: string) {
       const res2 = await fetch(`${API_URL}${path}`, { headers: authHeaders() });
       return res2.json();
     }
+    // Redirect to login on failed refresh
+    logout();
     throw new Error('Unauthorized');
   }
   return res.json();
@@ -46,6 +48,10 @@ export async function apiPost(path: string, body: any) {
       return res2.json();
     }
     throw new Error('Unauthorized');
+  }
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.error || `Request failed with status ${res.status}`);
   }
   return res.json();
 }
