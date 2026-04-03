@@ -26,7 +26,7 @@ export async function apiGet(path: string) {
     }
     // Redirect to login on failed refresh
     logout();
-    throw new Error('Unauthorized');
+    return {};
   }
   return res.json();
 }
@@ -47,7 +47,8 @@ export async function apiPost(path: string, body: any) {
       });
       return res2.json();
     }
-    throw new Error('Unauthorized');
+    logout();
+    return {};
   }
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
@@ -61,7 +62,18 @@ export async function apiDelete(path: string) {
     method: 'DELETE',
     headers: authHeaders(),
   });
+  if (res.status === 401) { logout(); return null; }
   return res;
+}
+
+export async function apiPatch(path: string, body: any) {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401) { logout(); return {}; }
+  return res.json();
 }
 
 export async function login(username: string, password: string) {
