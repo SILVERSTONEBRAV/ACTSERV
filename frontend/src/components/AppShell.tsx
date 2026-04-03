@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { logout } from "@/lib/api";
+import { logout, apiGet, isLoggedIn } from "@/lib/api";
 import { useToast } from "@/components/Toast";
 
 const navItems = [
@@ -23,13 +23,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { addToast } = useToast();
   const [theme, setTheme] = useState("dark");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
   const activeTopTab = searchParams.get("tab") || "Logs";
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "dark";
     setTheme(savedTheme);
     document.documentElement.setAttribute("data-theme", savedTheme);
+
+    // Fetch actual user info
+    if (isLoggedIn()) {
+      apiGet("/auth/me/").then(setCurrentUser).catch(() => {});
+    }
   }, []);
 
   const toggleTheme = () => {
@@ -38,6 +44,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     localStorage.setItem("theme", newTheme);
     document.documentElement.setAttribute("data-theme", newTheme);
   };
+
+  // Derive display values from real user data
+  const displayName = currentUser?.username || "Operator";
+  const isAdmin = currentUser?.is_staff || currentUser?.is_superuser;
+  const roleName = isAdmin ? "Admin Access" : "Standard User";
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   return (
     <div className="app-layout">
@@ -75,7 +87,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: "0.125rem" }}>
             {secondaryNav.map((item) => (
-              <a key={item.label} href={item.href}>
+              <a
+                key={item.label}
+                href={item.href}
+                className={pathname === item.href ? "active" : ""}
+                onClick={() => setSidebarOpen(false)}
+              >
                 <span className="material-symbols-outlined">{item.icon}</span>
                 {item.label}
               </a>
@@ -85,10 +102,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="sidebar-user">
           <div className="sidebar-user-info">
-            <div className="sidebar-user-avatar">AO</div>
+            <div className="sidebar-user-avatar">{initials}</div>
             <div>
-              <div className="sidebar-user-name">Admin Operator</div>
-              <div className="sidebar-user-role">Root Access</div>
+              <div className="sidebar-user-name">{displayName}</div>
+              <div className="sidebar-user-role" style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                <span className={`status-dot ${isAdmin ? "active" : ""}`} style={{ width: "6px", height: "6px" }}></span>
+                {roleName}
+              </div>
             </div>
           </div>
           <button

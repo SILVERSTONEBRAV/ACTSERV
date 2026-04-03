@@ -31,7 +31,13 @@ export default function FilesPage() {
     window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"}/files/${file.id}/download/`, "_blank");
   };
 
-  const totalSize = files.length * 2.4; // approximate
+  const totalSizeBytes = files.reduce((sum: number, f: any) => sum + (f.file_size_bytes || 0), 0);
+  const totalSize = totalSizeBytes > 1024 * 1024
+    ? `${(totalSizeBytes / (1024 * 1024)).toFixed(1)} MB`
+    : totalSizeBytes > 1024
+    ? `${(totalSizeBytes / 1024).toFixed(1)} KB`
+    : `${totalSizeBytes} B`;
+
 
   return (
     <AppShell>
@@ -109,7 +115,7 @@ export default function FilesPage() {
               <h3 style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>Storage Utilization</h3>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--on-surface-variant)" }}>
                 <span>Cold Storage</span>
-                <span style={{ color: "var(--on-surface)" }}>{totalSize.toFixed(1)} KB</span>
+                <span style={{ color: "var(--on-surface)" }}>{totalSize}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "var(--on-surface-variant)", marginTop: "0.25rem" }}>
                 <span>Retention</span>
