@@ -1,0 +1,78 @@
+services:
+  # === PLATFORM DATABASE ===
+  platform-db:
+    image: postgres:15
+    container_name: dataconnector_postgres
+    environment:
+      POSTGRES_DB: dataconnector
+      POSTGRES_USER: dataconnector_user
+      POSTGRES_PASSWORD: dataconnector_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # === DJANGO BACKEND ===
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dataconnector_backend
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+      - data_exports:/app/data_exports
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://dataconnector_user:dataconnector_password@platform-db:5432/dataconnector
+      - DEBUG=1
+    depends_on:
+      - platform-db
+
+  # === NEXT.JS FRONTEND ===
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dataconnector_frontend
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend
+
+  # === DUMMY TARGET DATABASES FOR TESTING ===
+  target-mysql:
+    image: mysql:8
+    container_name: dataconnector_target_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sampledb
+    ports:
+      - "3306:3306"
+
+  target-mongo:
+    image: mongo:6
+    container_name: dataconnector_target_mongo
+    ports:
+      - "27017:27017"
+
+  target-clickhouse:
+    image: clickhouse/clickhouse-server
+    container_name: dataconnector_target_clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+
+volumes:
+  postgres_data:
+  data_exports:
