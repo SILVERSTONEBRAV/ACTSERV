@@ -26,8 +26,12 @@ docker-compose up -d --build
 
 # Run migrations & create admin user
 docker-compose exec backend python manage.py migrate
-docker-compose exec backend python manage.py createsuperuser
+docker-compose exec backend python manage.py shell -c "from django.contrib.auth.models import User; u, created = User.objects.get_or_create(username='superadmin', defaults={'email':'superadmin@actserv.io','is_staff':True,'is_superuser':True}); u.set_password('SuperAdmin@2026'); u.save();"
 ```
+
+**Default Superadmin Credentials:**
+- **Username:** `superadmin`
+- **Password:** `SuperAdmin@2026`
 
 ### Access Points
 | Service | URL |
@@ -46,7 +50,7 @@ docker-compose exec backend python manage.py createsuperuser
 ### 2. Batch Data Extraction
 - Pull data from any configured source with configurable batch sizes
 - Real-time progress tracking with system logs
-- Support for SQL queries and MongoDB collection names
+- Built-in SQL Injection prevention (sanitization & parameterized queries)
 
 ### 3. Editable Data Grid
 - Inline cell editing with row-level change tracking
@@ -59,13 +63,18 @@ When data is submitted from the grid:
 - **Database**: Each row stored as a `ProcessedDataRow` (JSONField)
 - **File**: Exported as JSON or CSV with timestamp and source metadata
 
-### 5. Permission & Access Control (RBAC)
-- **Admin**: Full access to all files
-- **User**: Access to own files + files shared with them
-- JWT authentication for all API endpoints
-- File sharing via API endpoint
+### 5. Access Control & UI Separation (RBAC)
+- **Admin**: Has global visibility. Can provision/delete database connections, view/download all files across tenants, and manage user roles via the Settings profile.
+- **Standard User**: Isolated container context. Cannot modify database connections (read-only view). Can only view/download files they exported or files explicitly shared with them.
+- JWT authentication with automatic 401 redirect to `/login` on token expiration.
 
-### 6. Dynamic Dashboard Telemetry
+### 6. Security Hardening
+- **Rate Limiting:** Protects endpoints from brute-force (10/min unauthenticated, 100/min authenticated).
+- **SQL Sanitization:** Explicit regex blocking of `DROP/DELETE/ALTER` in extraction payloads.
+- **Environment Driven:** `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, and `CORS_ALLOWED_ORIGINS` dynamically injected via Docker environment.
+- **Django Password Validators:** Enforces minimum length, similarity checks, and common password restrictions.
+
+### 7. Dynamic Dashboard Telemetry
 - Active Clusters, Sync Latency, Sync Failures, Data Throughput — all computed from real extraction data
 - Tabbed interface: Logs, Metrics, Alerts
 
