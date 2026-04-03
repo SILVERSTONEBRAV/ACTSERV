@@ -16,10 +16,12 @@ export default function ConfigPage() {
   const [form, setForm] = useState({ name: "", db_type: "POSTGRES", host: "", port: "", username: "", password: "", database_name: "" });
   const [testing, setTesting] = useState<number | null>(null);
   const [testResult, setTestResult] = useState<Record<number, string>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
   const { addToast } = useToast();
 
   useEffect(() => {
     if (!isLoggedIn()) { window.location.href = "/login"; return; }
+    apiGet("/auth/me/").then((u) => setIsAdmin(u.is_staff || u.is_superuser)).catch(() => {});
     loadConnections();
     loadStats();
   }, []);
@@ -99,7 +101,8 @@ export default function ConfigPage() {
       </div>
 
       <div className="grid-2">
-        {/* Add New Connection */}
+        {/* Add New Connection — Admin Only */}
+        {isAdmin ? (
         <div className="card">
           <div className="section-header">
             <h3 className="section-title">
@@ -155,6 +158,21 @@ export default function ConfigPage() {
             Your connection strings are encrypted using AES-256-GCM. Rotate keys every 90 days for optimal compliance.
           </div>
         </div>
+        ) : (
+        <div className="card">
+          <div className="section-header">
+            <h3 className="section-title">
+              <span className="material-symbols-outlined">lock</span>
+              Restricted Access
+            </h3>
+          </div>
+          <div className="empty-state" style={{ padding: "2rem" }}>
+            <span className="material-symbols-outlined" style={{ fontSize: "48px", opacity: 0.3 }}>admin_panel_settings</span>
+            <p style={{ marginTop: "0.75rem", color: "var(--on-surface-variant)" }}>Only administrators can provision or modify database connections.</p>
+            <p style={{ fontSize: "0.8rem", color: "var(--outline)", marginTop: "0.5rem" }}>Contact your admin to request connection changes.</p>
+          </div>
+        </div>
+        )}
 
         {/* Existing Connections */}
         <div>
@@ -195,10 +213,12 @@ export default function ConfigPage() {
                     <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>speed</span>
                     {testing === c.id ? "Testing..." : "Test"}
                   </button>
+                  {isAdmin && (
                   <button className="btn btn-sm" onClick={() => handleDelete(c.id)} style={{ background: "rgba(255,180,171,0.1)", color: "var(--error)", border: "none" }}>
                     <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>delete</span>
                     Remove
                   </button>
+                  )}
                   {testResult[c.id] && (
                     <span className={`chip ${testResult[c.id] === "success" ? "chip-primary" : "chip-error"}`}>
                       {testResult[c.id] === "success" ? "✓ Connected" : "✗ Failed"}

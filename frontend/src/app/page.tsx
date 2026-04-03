@@ -17,6 +17,7 @@ export default function DashboardPage() {
     throughput: "0 B/s"
   });
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "Logs");
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (isLoggedIn()) {
       setLoggedIn(true);
+      apiGet("/auth/me/").then((u) => setIsAdmin(u.is_staff || u.is_superuser)).catch(() => {});
       apiGet("/connectors/").then(setConnections).catch(() => {});
       apiGet("/files/").then(setFiles).catch(() => {});
       apiGet("/datahub/stats/").then(setStats).catch(() => {});
@@ -170,10 +172,12 @@ export default function DashboardPage() {
               <span className="material-symbols-outlined">lan</span>
               Active Connections
             </h3>
+            {isAdmin && (
             <a href="/config" className="btn btn-secondary btn-sm">
               <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>add</span>
               Add
             </a>
+            )}
           </div>
 
           {connections.length > 0 ? (
@@ -191,9 +195,11 @@ export default function DashboardPage() {
             <div className="empty-state" style={{ padding: "2rem" }}>
               <span className="material-symbols-outlined" style={{ fontSize: "40px", opacity: 0.3, marginBottom: "0.5rem" }}>database</span>
               <p style={{ color: "var(--outline)" }}>No connections configured yet</p>
+              {isAdmin && (
               <a href="/config" className="btn btn-primary btn-sm" style={{ marginTop: "1rem" }}>
                 Get Started
               </a>
+              )}
             </div>
           )}
         </div>

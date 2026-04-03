@@ -8,9 +8,11 @@ export default function FilesPage() {
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [preview, setPreview] = useState<any>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) { window.location.href = "/login"; return; }
+    apiGet("/auth/me/").then((u) => setIsAdmin(u.is_staff || u.is_superuser)).catch(() => {});
     apiGet("/files/").then(setFiles).catch(() => {});
   }, []);
 
@@ -44,7 +46,9 @@ export default function FilesPage() {
       <div style={{ marginBottom: "1.5rem" }}>
         <h1>Storage & Files</h1>
         <p className="section-subtitle">
-          Manage the processed extraction payloads and structured records. As an Admin, you have global visibility across all system tenants.
+          {isAdmin
+            ? "Manage the processed extraction payloads and structured records. As an Admin, you have global visibility across all system tenants."
+            : "View and download your exported files and shared resources."}
         </p>
       </div>
 
@@ -128,8 +132,12 @@ export default function FilesPage() {
                 Access Control
               </h3>
               <div style={{ fontSize: "0.75rem", color: "var(--on-surface-variant)" }}>
-                <div><span className="chip chip-primary" style={{ marginRight: "0.5rem" }}>Admin</span>Global visibility</div>
-                <div style={{ marginTop: "0.375rem" }}><span className="chip chip-secondary" style={{ marginRight: "0.5rem" }}>User</span>Personal only</div>
+                <div>
+                  <span className={`chip ${isAdmin ? "chip-primary" : "chip-secondary"}`} style={{ marginRight: "0.5rem" }}>
+                    {isAdmin ? "Admin" : "User"}
+                  </span>
+                  {isAdmin ? "Global visibility" : "Personal + shared files"}
+                </div>
               </div>
             </div>
           </div>
