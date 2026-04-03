@@ -11,4 +11,4 @@ class DataFileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DataFile
-        fields = ['id', 'owner', 'owner_name', 'shared_with', 'file_path', 'source_metadata', 'format', 'created_at']
+        fields = ['id', 'owner', 'owner_name', 'shared_with', 'file_path', 'source_metadata', 'format', 'status', 'extraction_time_ms', 'file_size_bytes', 'created_at']
